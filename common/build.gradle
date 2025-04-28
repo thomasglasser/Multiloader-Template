@@ -1,3 +1,5 @@
+import javax.inject.Inject
+
 plugins {
 	id 'multiloader-common'
 	id 'net.neoforged.moddev' version "${mdg_version}"
@@ -13,15 +15,46 @@ neoForge {
 	}
 }
 
-dependencies {
-	compileOnly group:'net.fabricmc', name:'sponge-mixin', version:mixin_version
-	implementation "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
-	implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+@CacheableRule
+abstract class MakeLibraryLenient implements ComponentMetadataRule {
+	final String targetGroup
+	final Set<String> targetModule
 
-	implementation "dev.thomasglasser.tommylib:tommylib-common-${minecraft_version}:${tommylib_version}"
+	@Inject MakeLibraryLenient(String targetGroup, Collection<String> targetModule) {
+		this.targetGroup = targetGroup
+		this.targetModule = Set.copyOf(targetModule)
+	}
+
+	void execute(ComponentMetadataContext context) {
+		context.details.allVariants {
+			it.withDependencies {
+				it.each {
+					if (it.group == targetGroup && targetModule.contains(it.name)) {
+						it.version {
+							it.require(it.strictVersion)
+							it.strictly("+")
+						}
+					}
+				}
+			}
+		}
+	}
 }
 
-sourceSets.main.resources { srcDir './src/generated/resources' }
+dependencies {
+	compileOnly group:'net.fabricmc', name:'sponge-mixin', version:mixin_version
+	compileOnly "io.github.llamalad7:mixinextras-common:${mixinextras_version}"
+	components {
+		withModule("net.neoforged:minecraft-dependencies", MakeLibraryLenient) {
+			params("org.ow2.asm", ["asm", "asm-tree", "asm-commons", "asm-util"])
+		}
+	}
+	implementation group: 'com.google.code.findbugs', name: 'jsr305', version: '3.0.2'
+
+	implementation("dev.thomasglasser.tommylib:tommylib-common-${minecraft_version}:${tommylib_version}") {
+		transitive = false
+	}
+}
 
 configurations {
 	commonJava {
@@ -37,6 +70,8 @@ configurations {
 artifacts {
 	commonJava sourceSets.main.java.sourceDirectories.singleFile
 	sourceSets.main.resources.sourceDirectories.files.each {
-		commonResources it
+		commonResources(it) {
+			builtBy tasks.generateModMetadata
+		}
 	}
 }

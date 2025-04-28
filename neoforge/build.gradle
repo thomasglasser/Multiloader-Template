@@ -11,12 +11,15 @@ neoForge {
 		mappingsVersion = parchment_version
 	}
 
-	def at = '../common/src/main/resources/META-INF/accesstransformer.cfg'
+	def at = rootProject.project(":common").file('src/main/resources/META-INF/accesstransformer.cfg')
 	if (file(at).exists()) {
 		accessTransformers = [at]
 	}
 
 	runs {
+		configureEach {
+			systemProperties.put('terminal.ansi', 'true')
+		}
 		client {
 			client()
 			ideName = "NeoForge Client"
@@ -53,10 +56,11 @@ configurations {
 }
 
 dependencies {
-	jarJar implementation("dev.thomasglasser.tommylib:tommylib-neoforge-${minecraft_version}:${tommylib_version}")
+	jarJar implementation("dev.thomasglasser.tommylib:tommylib-neoforge-${minecraft_version}:${tommylib_version}") {
+		transitive = false
+	}
 
 	// Runtime
 	localRuntime "maven.modrinth:jade:${jade_version}+neoforge"
-	localRuntime "mezz.jei:jei-${previous_minecraft_version}-neoforge:${jei_version}"
-//	localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+	localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
 }
